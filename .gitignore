@@ -1,0 +1,15 @@
+.env
+/bin/
+/coverage.out
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+.aws/
+.codex/
+.agents/
+
+# Build artifacts
+/bin/
+/coverage.out
