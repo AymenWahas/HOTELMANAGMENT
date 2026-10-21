@@ -6,9 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"hotelmanagement/internal/domain"
 	"hotelmanagement/internal/postgres"
@@ -17,12 +20,14 @@ import (
 )
 
 type HTTP struct {
-	hotel    *usecase.Hotel
-	apiToken string
+	hotel           *usecase.Hotel
+	apiToken        string
+	bookingMu       sync.Mutex
+	bookingAttempts map[string][]time.Time
 }
 
 func NewHTTP(hotel *usecase.Hotel, apiToken string) *HTTP {
-	return &HTTP{hotel: hotel, apiToken: apiToken}
+	return &HTTP{hotel: hotel, apiToken: apiToken, bookingAttempts: make(map[string][]time.Time)}
 }
 
 var resources = map[string]domain.Kind{
@@ -37,6 +42,8 @@ func (h *HTTP) Routes() http.Handler {
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
+	mux.HandleFunc("GET /api/v1/public/rooms", h.publicRooms)
+	mux.HandleFunc("POST /api/v1/public/booking-requests", h.publicBookingRequest)
 	mux.HandleFunc("GET /api/v1/dashboard", h.dashboard)
 	mux.HandleFunc("GET /api/v1/reports/occupancy", h.occupancy)
 	mux.HandleFunc("GET /api/v1/reports/revenue", h.revenue)
@@ -55,7 +62,8 @@ func (h *HTTP) Routes() http.Handler {
 
 func (h *HTTP) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/api/") {
+		isPublicBookingRoute := (r.Method == http.MethodGet && r.URL.Path == "/api/v1/public/rooms") || (r.Method == http.MethodPost && r.URL.Path == "/api/v1/public/booking-requests")
+		if strings.HasPrefix(r.URL.Path, "/api/") && !isPublicBookingRoute {
 			provided := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 			if len(provided) != len(h.apiToken) || subtle.ConstantTimeCompare([]byte(provided), []byte(h.apiToken)) != 1 {
 				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "valid bearer token required"})
@@ -64,6 +72,64 @@ func (h *HTTP) authenticate(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (h *HTTP) publicRooms(w http.ResponseWriter, r *http.Request) {
+	rooms, err := h.hotel.PublicRooms(r.Context(), r.URL.Query().Get("check_in"), r.URL.Query().Get("check_out"))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, map[string]any{"items": rooms})
+}
+
+func (h *HTTP) publicBookingRequest(w http.ResponseWriter, r *http.Request) {
+	if !h.allowBookingRequest(r.RemoteAddr) {
+		w.Header().Set("Retry-After", "900")
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "Too many booking requests. Please try again later."})
+		return
+	}
+	var request domain.BookingRequest
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil {
+		writeError(w, fmt.Errorf("%w: invalid JSON body", usecase.ErrInvalid))
+		return
+	}
+	record, err := h.hotel.RequestBooking(r.Context(), request)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]string{"id": record.ID, "status": "pending"})
+}
+
+func (h *HTTP) allowBookingRequest(remoteAddr string) bool {
+	clientIP, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		clientIP = remoteAddr
+	}
+	if clientIP == "" || clientIP == "[::]" || clientIP == "::" {
+		return true
+	}
+	const maxAttemptsPerWindow = 10
+	now := time.Now()
+	cutoff := now.Add(-4 * time.Minute)
+	h.bookingMu.Lock()
+	defer h.bookingMu.Unlock()
+	attempts := h.bookingAttempts[clientIP][:0]
+	for _, attempt := range h.bookingAttempts[clientIP] {
+		if attempt.After(cutoff) {
+			attempts = append(attempts, attempt)
+		}
+	}
+	if len(attempts) >= maxAttemptsPerWindow {
+		h.bookingAttempts[clientIP] = attempts
+		return false
+	}
+	h.bookingAttempts[clientIP] = append(attempts, now)
+	return true
 }
 
 func (h *HTTP) dashboard(w http.ResponseWriter, r *http.Request) {

@@ -10,6 +10,32 @@ services:
       - "5433:5432"
     volumes:
       - hotel_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hotel -d hotel_management"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://hotel:hotel@postgres:5432/hotel_management?sslmode=disable
+      API_TOKEN: ${API_TOKEN:-demo-token-12345}
+      APP_PORT: ${APP_PORT:-8089}
+      HOTEL_TIMEZONE: ${HOTEL_TIMEZONE:-Asia/Riyadh}
+    ports:
+      - "${APP_PORT:-8089}:8089"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8089/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
 volumes:
   hotel_postgres_data:

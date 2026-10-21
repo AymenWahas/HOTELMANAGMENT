@@ -3,62 +3,50 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f4f5f2" />
-    <title>Staywise | إدارة الفندق</title>
-    <link rel="stylesheet" href="/styles.css?v=arabic-3" />
+    <meta name="theme-color" content="#f6f3ec" />
+    <meta name="description" content="استكشف غرف Staywise وأرسل طلب حجز إقامتك." />
+    <title>Staywise | احجز إقامتك</title>
+    <link rel="preconnect" href="https://images.unsplash.com" />
+    <link rel="stylesheet" href="guest.css?v=3" />
   </head>
   <body>
-    <div id="login-screen" class="login-screen" hidden>
-      <div class="login-card">
-        <div class="brand-mark brand-mark-large">S</div>
-        <p class="eyebrow">HOTEL OPERATIONS</p>
-        <h1>Good to have you<br />back.</h1>
-        <p class="muted">Enter your hotel API access token to open the workspace.</p>
-        <form id="login-form">
-          <label for="api-token">API access token</label>
-          <input id="api-token" name="token" type="password" autocomplete="current-password" placeholder="Paste your access token" required />
-          <p id="login-error" class="form-error" aria-live="polite"></p>
-          <button class="button button-primary button-full" type="submit">Open workspace <span>→</span></button>
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="Staywise"><span class="brand-mark">S</span><span>staywise</span></a>
+      <nav aria-label="التنقل الرئيسي"><a class="nav-cta" href="#booking">الحجز</a></nav>
+    </header>
+    <main id="top">
+      <section class="rooms section-wrap" id="rooms" aria-labelledby="rooms-title">
+        <div class="section-heading"><div><h1 id="rooms-title">صور الغرف</h1></div></div>
+        <div class="gallery">
+          <article class="gallery-card" role="button" tabindex="0" aria-label="تكبير صورة الجناح الفاخر"><img src="https://images.unsplash.com/photo-1776761363365-ad83248b93df?auto=format&fit=crop&w=1400&q=85" alt="جناح فندقي فاخر بإطلالة على المدينة" fetchpriority="high" /><div class="gallery-caption"><span>01</span><strong>جناح فاخر</strong><span class="zoom-mark" aria-hidden="true">＋</span></div></article>
+          <article class="gallery-card" role="button" tabindex="0" aria-label="تكبير صورة غرفة الديلوكس"><img src="https://images.unsplash.com/photo-1790419683322-b08a7050c424?auto=format&fit=crop&w=1100&q=85" alt="غرفة فندقية أنيقة بجدار حجري وتفاصيل خشبية" loading="lazy" /><div class="gallery-caption"><span>02</span><strong>غرفة ديلوكس</strong><span class="zoom-mark" aria-hidden="true">＋</span></div></article>
+          <article class="gallery-card" role="button" tabindex="0" aria-label="تكبير صورة غرفة البريميوم"><img src="https://images.unsplash.com/photo-1731336478850-6bce7235e320?auto=format&fit=crop&w=1100&q=85" alt="غرفة فندقية فاخرة بسرير مريح ولمسات عصرية" loading="lazy" /><div class="gallery-caption"><span>03</span><strong>غرفة بريميوم</strong><span class="zoom-mark" aria-hidden="true">＋</span></div></article>
+          <article class="gallery-card" role="button" tabindex="0" aria-label="تكبير صورة الغرفة الهادئة"><img src="https://images.unsplash.com/photo-1652161854125-1f5289c13eac?auto=format&fit=crop&w=1100&q=85" alt="غرفة فندقية هادئة بإضاءة طبيعية وألوان راقية" loading="lazy" /><div class="gallery-caption"><span>04</span><strong>غرفة هادئة</strong><span class="zoom-mark" aria-hidden="true">＋</span></div></article>
+        </div>
+        <p class="photo-note">الصور لأغراض العرض، وقد تختلف الغرفة الفعلية عنها. الصور: <a href="https://unsplash.com/license" target="_blank" rel="noreferrer">Unsplash</a>.</p>
+      </section>
+      <section class="booking section-wrap" id="booking" aria-labelledby="booking-title">
+        <div class="booking-intro"><h2 id="booking-title">الحجز</h2><p>اختر تواريخ إقامتك والغرفة المناسبة لإرسال طلب الحجز.</p><div class="booking-note"><span class="note-mark">✦</span><span>يتم تأكيد الحجز بعد مراجعة الطلب من فريق الفندق.</span></div></div>
+        <form id="booking-form" class="booking-form">
+          <div class="field-row"><label>تاريخ الوصول<input name="check_in" id="check-in" type="date" required /></label><label>تاريخ المغادرة<input name="check_out" id="check-out" type="date" required /></label></div>
+          <div class="field-row field-row-small"><label>البالغون<select name="adults"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label><label>الأطفال<select name="children"><option selected>0</option><option>1</option><option>2</option><option>3</option><option>4</option></select></label><button id="search-rooms" class="button button-outline" type="button">عرض الغرف المتاحة <span>←</span></button></div>
+          <div id="availability" class="availability" aria-live="polite"></div>
+          <div id="guest-fields" class="guest-fields" hidden>
+            <label>الاسم الكامل<input name="name" autocomplete="name" maxlength="120" required placeholder="الاسم الأول واسم العائلة" /></label>
+            <div class="field-row"><label>البريد الإلكتروني<input name="email" type="email" autocomplete="email" maxlength="254" required /></label><label>رقم الهاتف<input name="phone" type="tel" autocomplete="tel" maxlength="32" required /></label></div>
+            <label class="honeypot" aria-hidden="true">اترك هذا الحقل فارغًا<input name="website" tabindex="-1" autocomplete="off" /></label>
+            <button id="submit-booking" class="button button-dark button-full" type="submit" disabled>إرسال طلب الحجز <span>←</span></button>
+          </div>
+          <p id="booking-message" class="booking-message" aria-live="polite"></p>
         </form>
-        <p class="login-footnote">Your token stays in this browser and is sent only to this hotel server.</p>
-      </div>
-      <div class="login-art" aria-hidden="true">
-        <div class="art-circle"></div><div class="art-panel"><span>STAYWISE</span><strong>Every stay,<br />in good hands.</strong><i>Front desk · Rooms · Guest care</i></div>
-      </div>
-    </div>
-
-    <div id="app-shell" class="app-shell" hidden>
-      <aside class="sidebar" id="sidebar">
-        <a class="brand" href="#overview" aria-label="Staywise home">
-          <span class="brand-mark">S</span><span class="brand-name">staywise<small>HOTEL OPERATIONS</small></span>
-        </a>
-        <div class="property-switch"><span class="property-icon">⌂</span><span><strong>My property</strong><small>Hotel workspace</small></span><span class="chevron">⌄</span></div>
-        <p class="nav-label">WORKSPACE</p>
-        <nav class="main-nav" aria-label="Main navigation">
-          <button class="nav-item active" data-page="overview"><span class="nav-icon">◫</span>Overview</button>
-          <button class="nav-item" data-page="reception"><span class="nav-icon">⌑</span>Reception<span class="nav-count" id="arrival-count">0</span></button>
-          <button class="nav-item" data-page="bookings"><span class="nav-icon">▤</span>Bookings</button>
-          <button class="nav-item" data-page="rooms"><span class="nav-icon">▦</span>Rooms</button>
-          <button class="nav-item" data-page="guests"><span class="nav-icon">♙</span>Guests</button>
-          <button class="nav-item" data-page="payments"><span class="nav-icon">◉</span>Payments</button>
-        </nav>
-        <div class="sidebar-spacer"></div>
-        <div class="sidebar-help"><span class="help-bubble">?</span><div><strong>Need a hand?</strong><small>Ask your administrator for access</small></div></div>
-        <button id="sign-out" class="user-card"><span class="avatar">HM</span><span><strong>Hotel Manager</strong><small>Sign out</small></span><span class="more">···</span></button>
-      </aside>
-
-      <main class="main-area">
-        <header class="topbar">
-          <button class="mobile-menu" id="menu-toggle" aria-label="Toggle navigation">☰</button>
-          <div class="breadcrumbs"><span>Hotel</span><span class="crumb-slash">/</span><strong id="page-crumb">Overview</strong></div>
-          <div class="topbar-actions"><span class="today-label" id="today-label"></span><button class="icon-button" id="refresh-button" title="Refresh data" aria-label="Refresh data">↻</button><span class="top-avatar">HM</span></div>
-        </header>
-        <div id="page-content" class="page-content" aria-live="polite"></div>
-      </main>
-    </div>
-
-    <div id="modal-root"></div>
-    <div id="toast-root" class="toast-root" aria-live="polite"></div>
-    <script src="/app.js?v=arabic-4" defer></script>
+      </section>
+    </main>
+    <dialog id="photo-dialog" class="photo-dialog" aria-label="معرض صور الغرف">
+      <button class="photo-close" type="button" aria-label="إغلاق الصورة">×</button>
+      <button class="photo-arrow photo-prev" type="button" aria-label="الصورة السابقة">›</button>
+      <figure><img id="dialog-image" alt="" /><figcaption><strong id="dialog-title"></strong><span id="dialog-count"></span></figcaption></figure>
+      <button class="photo-arrow photo-next" type="button" aria-label="الصورة التالية">‹</button>
+    </dialog>
+    <script src="guest.js?v=3" defer></script>
   </body>
 </html>

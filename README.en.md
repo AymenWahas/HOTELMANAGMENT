@@ -24,7 +24,19 @@ HTTP handler -> use case -> repository interface -> PostgreSQL repository
 
 PostgreSQL keeps each operational area in its own relational table. Foreign keys, check constraints, and a date-range exclusion constraint protect the data. Inventory movements and reservation lifecycle changes run in database transactions.
 
-## Run locally
+## Run the project
+
+### Quick delivery setup
+
+From the project root:
+
+```sh
+docker compose up --build -d
+```
+
+This starts both PostgreSQL and the API, and the app is available at **http://localhost:8089**.
+
+### Local development
 
 Requirements: Go 1.26.5+ and Docker Compose.
 
@@ -34,13 +46,13 @@ Requirements: Go 1.26.5+ and Docker Compose.
    ```sh
    export DATABASE_URL='postgres://hotel:hotel@localhost:5433/hotel_management?sslmode=disable'
    export API_TOKEN='replace-this-with-a-long-random-secret'
-   export APP_PORT=8081
+   export APP_PORT=8089
    export HOTEL_TIMEZONE='Asia/Riyadh'
    ```
 
 3. Start the API and browser interface from the project root: `go run ./cmd/api`
 
-The API applies `migrations/001_initial_schema.sql` on startup and records the applied migration. Open **http://localhost:8081** in your browser and enter the configured `API_TOKEN` to use the interface. Health check: `GET http://localhost:8081/health`.
+The API applies `migrations/001_initial_schema.sql` on startup and records the applied migration. Open **http://localhost:8089** in your browser and enter the configured `API_TOKEN` to use the interface. Health check: `GET http://localhost:8089/health`.
 
 The embedded browser interface includes overview, reception, bookings, rooms, guests, and payments screens. Its forms call the corresponding `/api/v1` endpoints on the same server.
 
@@ -97,7 +109,7 @@ Reports:
 curl -H "Authorization: Bearer $API_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"number":"101","room_type":"standard","floor":1,"rate":350}' \
-  http://localhost:8081/api/v1/rooms
+  http://localhost:8089/api/v1/rooms
 ```
 
 ```json

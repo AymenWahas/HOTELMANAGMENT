@@ -244,6 +244,11 @@ func (r *Repository) TransitionReservation(ctx context.Context, id, action strin
 	}
 	newStatus, roomStatus := "", ""
 	switch action {
+	case "confirm":
+		if status != "pending" {
+			return domain.Record{}, ErrInvalidTransition
+		}
+		newStatus = "confirmed"
 	case "check-in":
 		if status != "confirmed" {
 			return domain.Record{}, ErrInvalidTransition
@@ -265,7 +270,7 @@ func (r *Repository) TransitionReservation(ctx context.Context, id, action strin
 		}
 		newStatus, roomStatus = "checked_out", "needs_cleaning"
 	case "cancel":
-		if status != "confirmed" {
+		if status != "pending" && status != "confirmed" {
 			return domain.Record{}, ErrInvalidTransition
 		}
 		newStatus = "cancelled"
@@ -273,7 +278,7 @@ func (r *Repository) TransitionReservation(ctx context.Context, id, action strin
 		return domain.Record{}, ErrInvalidTransition
 	}
 	if _, err := tx.Exec(ctx, `UPDATE reservations SET status=$2,updated_at=now() WHERE id=$1`, id, newStatus); err != nil {
-		return domain.Record{}, err
+		return domain.Record{}, translateConstraint(err)
 	}
 	if roomStatus != "" {
 		if _, err := tx.Exec(ctx, `UPDATE rooms SET status=$2,updated_at=now() WHERE id=$1`, roomID, roomStatus); err != nil {
@@ -293,7 +298,7 @@ func (r *Repository) TransitionReservation(ctx context.Context, id, action strin
 		return domain.Record{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return domain.Record{}, err
+		return domain.Record{}, translateConstraint(err)
 	}
 	return item, nil
 }
@@ -350,7 +355,7 @@ func (r *Repository) FrontDeskQueue(ctx context.Context, direction, date string)
 	if direction == "departures" {
 		dateColumn, status = "r.check_out", "checked_in"
 	}
-	query := fmt.Sprintf(`SELECT r.id::text,r.guest_id::text,g.first_name || ' ' || g.last_name,
+	query := fmt.Sprintf(`SELECT r.id::text,r.guest_id::text,btrim(g.first_name || ' ' || g.last_name),
 		r.room_id::text,rooms.number,r.check_in::text,r.check_out::text,r.status,r.adults,r.children
 		FROM reservations r JOIN guests g ON g.id=r.guest_id JOIN rooms ON rooms.id=r.room_id
 		WHERE r.archived_at IS NULL AND %s=COALESCE(NULLIF($1,'')::date,current_date) AND r.status=$2

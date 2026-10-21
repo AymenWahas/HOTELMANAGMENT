@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/mail"
 	"strings"
 	"time"
 
@@ -88,10 +89,55 @@ func (h *Hotel) Archive(ctx context.Context, kind domain.Kind, id string) error 
 }
 
 func (h *Hotel) ReservationAction(ctx context.Context, id, action string) (domain.Record, error) {
-	if action != "check-in" && action != "check-out" && action != "cancel" {
-		return domain.Record{}, fmt.Errorf("%w: action must be check-in, check-out, or cancel", ErrInvalid)
+	if action != "confirm" && action != "check-in" && action != "check-out" && action != "cancel" {
+		return domain.Record{}, fmt.Errorf("%w: action must be confirm, check-in, check-out, or cancel", ErrInvalid)
 	}
 	return h.records.TransitionReservation(ctx, id, action)
+}
+
+func (h *Hotel) PublicRooms(ctx context.Context, checkIn, checkOut string) ([]domain.PublicRoom, error) {
+	inDate, errIn := time.Parse("2006-01-02", checkIn)
+	outDate, errOut := time.Parse("2006-01-02", checkOut)
+	if errIn != nil || errOut != nil || !outDate.After(inDate) || outDate.Sub(inDate) > 90*24*time.Hour {
+		return nil, fmt.Errorf("%w: choose valid stay dates of 1 to 90 nights", ErrInvalid)
+	}
+	return h.records.PublicRooms(ctx, checkIn, checkOut)
+}
+
+func (h *Hotel) RequestBooking(ctx context.Context, request domain.BookingRequest) (domain.Record, error) {
+	request.FirstName = strings.TrimSpace(request.FirstName)
+	request.LastName = strings.TrimSpace(request.LastName)
+	request.Email = strings.ToLower(strings.TrimSpace(request.Email))
+	request.Phone = strings.TrimSpace(request.Phone)
+	request.RoomID = strings.TrimSpace(request.RoomID)
+	request.CheckIn = strings.TrimSpace(request.CheckIn)
+	request.CheckOut = strings.TrimSpace(request.CheckOut)
+	request.Website = strings.TrimSpace(request.Website)
+	if request.Website != "" {
+		return domain.Record{}, fmt.Errorf("%w: invalid booking request", ErrInvalid)
+	}
+	if len(request.FirstName) < 1 || len(request.FirstName) > 80 || len(request.LastName) > 80 {
+		return domain.Record{}, fmt.Errorf("%w: first name is required and names must be 80 characters maximum", ErrInvalid)
+	}
+	if len(request.Email) > 254 {
+		return domain.Record{}, fmt.Errorf("%w: email is too long", ErrInvalid)
+	}
+	address, err := mail.ParseAddress(request.Email)
+	if err != nil || address.Address != request.Email {
+		return domain.Record{}, fmt.Errorf("%w: enter a valid email address", ErrInvalid)
+	}
+	if len(request.Phone) < 7 || len(request.Phone) > 32 {
+		return domain.Record{}, fmt.Errorf("%w: enter a valid phone number", ErrInvalid)
+	}
+	if request.Adults < 1 || request.Adults > 6 || request.Children < 0 || request.Children > 4 {
+		return domain.Record{}, fmt.Errorf("%w: guest counts are outside the allowed range", ErrInvalid)
+	}
+	inDate, errIn := time.Parse("2006-01-02", request.CheckIn)
+	outDate, errOut := time.Parse("2006-01-02", request.CheckOut)
+	if errIn != nil || errOut != nil || !outDate.After(inDate) || outDate.Sub(inDate) > 90*24*time.Hour {
+		return domain.Record{}, fmt.Errorf("%w: choose valid stay dates of 1 to 90 nights", ErrInvalid)
+	}
+	return h.records.CreateBookingRequest(ctx, request)
 }
 
 func (h *Hotel) Dashboard(ctx context.Context) (domain.Dashboard, error) {

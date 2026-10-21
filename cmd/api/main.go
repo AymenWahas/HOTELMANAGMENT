@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -62,37 +63,47 @@ func main() {
 }
 
 func migrate(ctx context.Context, db *pgxpool.Pool) error {
-	path := filepath.Join("migrations", "001_initial_schema.sql")
-	schema, err := os.ReadFile(path)
+	if _, err := db.Exec(ctx, "CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())"); err != nil {
+		return err
+	}
+	paths, err := filepath.Glob(filepath.Join("migrations", "*.sql"))
 	if err != nil {
 		return err
 	}
-	if _, err := db.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())`); err != nil {
-		return err
-	}
-	var applied bool
-	if err := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version='001_initial_schema')`).Scan(&applied); err != nil {
-		return err
-	}
-	if applied {
-		return nil
-	}
-	tx, err := db.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-	for _, statement := range strings.Split(string(schema), ";") {
-		statement = strings.TrimSpace(statement)
-		if statement == "" {
+	for _, migrationPath := range paths {
+		version := strings.TrimSuffix(filepath.Base(migrationPath), ".sql")
+		var applied bool
+		if err := db.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=$1)", version).Scan(&applied); err != nil {
+			return err
+		}
+		if applied {
 			continue
 		}
-		if _, err := tx.Exec(ctx, statement); err != nil {
+		schema, err := os.ReadFile(migrationPath)
+		if err != nil {
+			return err
+		}
+		tx, err := db.Begin(ctx)
+		if err != nil {
+			return err
+		}
+		for _, statement := range strings.Split(string(schema), ";") {
+			statement = strings.TrimSpace(statement)
+			if statement == "" {
+				continue
+			}
+			if _, err := tx.Exec(ctx, statement); err != nil {
+				_ = tx.Rollback(ctx)
+				return fmt.Errorf("apply migration %s: %w", version, err)
+			}
+		}
+		if _, err := tx.Exec(ctx, "INSERT INTO schema_migrations(version) VALUES ($1)", version); err != nil {
+			_ = tx.Rollback(ctx)
+			return err
+		}
+		if err := tx.Commit(ctx); err != nil {
 			return err
 		}
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO schema_migrations(version) VALUES ('001_initial_schema')`); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
+	return nil
 }

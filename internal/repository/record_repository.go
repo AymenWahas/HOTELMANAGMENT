@@ -7,6 +7,8 @@ import (
 )
 
 type RecordRepository interface {
+	PublicRooms(context.Context, string, string) ([]domain.PublicRoom, error)
+	CreateBookingRequest(context.Context, domain.BookingRequest) (domain.Record, error)
 	List(context.Context, domain.Kind, int, int) ([]domain.Record, error)
 	Get(context.Context, domain.Kind, string) (domain.Record, error)
 	Create(context.Context, domain.Kind, domain.Input) (domain.Record, error)
